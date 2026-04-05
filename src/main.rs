@@ -96,9 +96,9 @@ fn stat_table_row(label: &str, cells: Option<(f32, f32, f32)>) -> String {
         None => format!(
             "{:<lw$}{:>dw$}  {:>tw$}  {:>fw$}",
             label,
-            "—",
-            "—",
-            "—",
+            "---",
+            "---",
+            "---",
             lw = STAT_LABEL_W,
             dw = STAT_DIST_W,
             tw = STAT_TIME_W,
@@ -262,27 +262,11 @@ async fn graphical_run() {
         draw_text(&prev_line, 16.0, y0 + 2.0 * line_h, size_table, stat_color);
         draw_text(&gen_line, 16.0, y0 + 3.0 * line_h, size_table, stat_color);
         draw_text(&seen_line, 16.0, y0 + 4.0 * line_h, size_table, stat_color);
-        let mode_txt = if shift {
+        let mode_txt = 
             format!(
-                "Shift: max physics until {:.0}% of a {:.0} Hz frame — release for 1:1 real time",
-                PHYSICS_FRAME_BUDGET_FRAC * 100.0,
-                FASTFORWARD_FPS
-            )
-        } else {
-            format!(
-                "Hold Shift: max physics per frame @ {:.0} Hz (see FASTFORWARD_FPS); {:.0} Hz real-time now",
-                FASTFORWARD_FPS, GRAPHICS_FPS_NORMAL
-            )
-        };
+                "Shift: Super Fast Forward"
+            );
         draw_text(&mode_txt, 16.0, screen_height() - 44.0, 16.0, GRAY);
-        draw_text(
-            "use --headless to train without a window",
-            16.0,
-            screen_height() - 24.0,
-            16.0,
-            DARKGRAY,
-        );
-
         next_frame().await;
     }
 }

@@ -11,14 +11,14 @@ pub const L: f64 = 0.5;
 pub const G: f64 = 9.81;
 
 /// Finish line: episode succeeds when `x >= RACE_DISTANCE_M`.
-pub const RACE_DISTANCE_M: f64 = 20.0;
+pub const RACE_DISTANCE_M: f64 = 100.0;
 /// Episode fails when `x` goes past this left bound (meters). Allows brief backward motion.
 pub const LEFT_BOUND_M: f64 = -1.0;
 
 /// Weight on survival time in failure fitness (`W_TIME * time_s + W_DIST * max_x`).
 pub const W_TIME: f32 = 0.04;
 /// Weight on forward distance in failure fitness.
-pub const W_DIST: f32 = 0.01;
+pub const W_DIST: f32 = 0.02;
 /// Scale for inverse finish time on success (`BASE_SUCCESS + W_SPEED / time_s`).
 pub const W_SPEED: f32 = 100.0;
 
@@ -37,7 +37,7 @@ pub const ANGLE_LIMIT_RAD: f64 = std::f64::consts::PI / 180.0 * 30.0;
 /// Uniform noise half-width on θ each step (radians).
 pub const THETA_NOISE: f64 = 1e-3;
 
-pub const MAX_ABS_FORCE: f64 = 50.0;
+pub const MAX_ABS_FORCE: f64 = 500.0;
 
 /// Controller: 4 linear weights on `(x, x_dot, theta, theta_dot)`, then 6 weights on
 /// products `v_i * v_j` for `i < j` in that variable order (strict upper triangle).

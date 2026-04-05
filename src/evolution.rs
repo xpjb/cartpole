@@ -9,11 +9,12 @@ use std::io;
 use std::path::Path;
 
 pub const POP_SIZE: usize = 100;
-pub const WINNER_COUNT: usize = POP_SIZE / 2;
 pub const ELITE_COUNT: usize = 2;
 pub const MUTATE_PROB: f64 = 0.15;
 pub const MUTATE_STD: f32 = 0.4;
 pub const INIT_WEIGHT_RANGE: f32 = 2.0;
+/// Per-rank success probability scanning sorted population best→worst; first success is the parent.
+pub const PARENT_SCAN_P: f64 = 0.3;
 
 pub const SAVE_FILENAME: &str = "best_population.json";
 
@@ -101,20 +102,19 @@ impl Population {
         self.best = self.individuals[best_i];
         self.best_fitness = self.fitness[best_i];
 
-        let winners: Vec<Genome> = order[..WINNER_COUNT]
-            .iter()
-            .map(|&i| self.individuals[i])
-            .collect();
-
         let mut next = Vec::with_capacity(POP_SIZE);
         for &i in order.iter().take(ELITE_COUNT) {
             next.push(self.individuals[i]);
         }
 
         while next.len() < POP_SIZE {
-            let ia = rng.gen_range(0..WINNER_COUNT);
-            let ib = rng.gen_range(0..WINNER_COUNT);
-            let mut child = crossover(&winners[ia], &winners[ib], rng);
+            let ia = pick_parent_rank(rng);
+            let ib = pick_parent_rank(rng);
+            let mut child = crossover(
+                &self.individuals[order[ia]],
+                &self.individuals[order[ib]],
+                rng,
+            );
             mutate(&mut child, rng);
             next.push(child);
         }
@@ -133,6 +133,15 @@ impl Population {
         let json = serde_json::to_string_pretty(&saved)?;
         fs::write(path, json)
     }
+}
+
+fn pick_parent_rank(rng: &mut ThreadRng) -> usize {
+    for r in 0..POP_SIZE {
+        if rng.gen_bool(PARENT_SCAN_P) {
+            return r;
+        }
+    }
+    0
 }
 
 fn random_genome(rng: &mut ThreadRng) -> Genome {

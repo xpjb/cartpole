@@ -24,3 +24,13 @@ i kind of think its underfitting, might try quadratic control
 
 wow quadratic is cool
 is there like taylor series control lol 
+
+anyway now its pretty good but like i feel could be better at learning
+maybe better population management, survive good solutions, fitness weighting them as well
+against homog
+could make100 copies of best one and then mutate for example, lol
+
+mutation hyperparameters etc
+
+gonna try bernoulli trials
+bernoulli weight and like mutation amount could be parameters too lol
