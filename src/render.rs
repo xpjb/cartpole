@@ -1,6 +1,6 @@
 //! 2D cart–pole drawing (Macroquad): camera follows cart; world-space distance grid.
 
-use crate::physics::{State, L, RACE_DISTANCE_M};
+use crate::physics::{State, L, MAX_ABS_FORCE, RACE_DISTANCE_M};
 use macroquad::prelude::*;
 
 const POLE_SCREEN_LEN: f32 = 120.0;
@@ -88,4 +88,29 @@ pub fn draw_cartpole(state: State) {
 
     draw_line(cart_cx, cart_top, tip_x, tip_y, 5.0, GOLD);
     draw_circle(tip_x, tip_y, 7.0, ORANGE);
+}
+
+/// Bottom-center: horizontal force, linear in `|f| / MAX_ABS_FORCE`; full scale = 25% of screen each way from center.
+pub fn draw_control_force_arrow(force: f64) {
+    let w = screen_width();
+    let h = screen_height();
+    let cx = w * 0.5;
+    let cy = h - 52.0;
+    let red = Color::from_rgba(220, 55, 55, 255);
+
+    let len = (force.abs() / MAX_ABS_FORCE) * (w as f64 * 10.0);
+    if len < 1.0 {
+        draw_circle(cx, cy, 3.0, red);
+        return;
+    }
+
+    let dir = force.signum() as f32;
+    let tip_x = (cx as f64 + force.signum() * len) as f32;
+    let head = 6.0f32;
+    let wing = 4.0f32;
+    let base_x = tip_x - dir * head;
+
+    draw_line(cx, cy, tip_x, cy, 2.5, red);
+    draw_line(tip_x, cy, base_x, cy + wing, 2.5, red);
+    draw_line(tip_x, cy, base_x, cy - wing, 2.5, red);
 }

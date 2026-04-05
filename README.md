@@ -34,3 +34,12 @@ mutation hyperparameters etc
 
 gonna try bernoulli trials
 bernoulli weight and like mutation amount could be parameters too lol
+
+yea sick thath elped a lot
+red arrow is sick
+its overfitting the distance lmao, speeds up right at the end
+
+relay mode
+
+should avg over 4 trials so it doesnt die to it falling left lmao
+its winner takes all rn

@@ -6,7 +6,7 @@ mod render;
 
 use evolution::{Population, POP_SIZE, SAVE_FILENAME};
 use macroquad::prelude::*;
-use physics::{episode_step, State};
+use physics::{control_force, episode_step, State};
 use ::rand::thread_rng;
 use std::env;
 use std::path::PathBuf;
@@ -231,6 +231,8 @@ async fn graphical_run() {
 
         clear_background(Color::from_rgba(24, 28, 36, 255));
         render::draw_cartpole(sim);
+        let f = control_force(&sim, &pop.individuals[eval_index]);
+        render::draw_control_force_arrow(f);
 
         let gen_ep_line = format!(
             "gen {}  episode {}/{}",

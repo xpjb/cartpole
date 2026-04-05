@@ -77,6 +77,12 @@ pub struct EpisodeOutcome {
     pub max_x: f32,
 }
 
+/// Bounded horizontal control force (N) for the current state and policy.
+#[inline]
+pub fn control_force(state: &State, g: &Genome) -> f64 {
+    force_from_genome(state, g)
+}
+
 #[inline]
 fn force_from_genome(state: &State, g: &Genome) -> f64 {
     let x = state.x;
@@ -107,7 +113,7 @@ pub fn step_state(state: &mut State, genome: &Genome, rng: &mut impl Rng) {
     let grav = G;
     let sum_m = m + m_p;
 
-    let force = force_from_genome(state, genome);
+    let force = control_force(state, genome);
     let theta = state.theta;
     let theta_dot = state.theta_dot;
     let sin_t = theta.sin();
