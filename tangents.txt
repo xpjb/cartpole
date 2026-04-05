@@ -1,0 +1,41 @@
+motorized cart pole to finish line, speed
+maybe a nn, maybe tapped delay lines of input it can learn derivatives itself and etc
+and integrate i guess by adding them all up
+
+
+tdls and laplace oh its like emas
+
+is there a such a thing as the ema versions of a tdl
+
+tangents - best mutation strategy - exponentially distributed mutations maybe, might strike gold some time
+
+
+------------
+
+yea could have really strong wind, as long as the cart is allowed to do really fast acceleration
+could also have it on the back of a quadcopter or in this case twincopter drone
+and have some more general types of systems
+
+wind
+
+take it from a to b
+etc
+
+or tilting ground
+
+----
+
+and what about anouter product matrix ?
+does it need a relu?
+
+----
+
+quadratic model vs. linear model
+-----
+yea cart pole races will be dope
+could be a cool game
+
+------
+that fkn layered ema idea had legs
+and tapped delay line type shit etc too
+its kind of a recency bias TDL
