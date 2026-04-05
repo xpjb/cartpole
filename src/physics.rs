@@ -10,7 +10,13 @@ pub const M_POLE: f64 = 0.1;
 pub const L: f64 = 0.5;
 pub const G: f64 = 9.81;
 
-pub const TRACK_LIMIT: f64 = 3.6;
+/// Finish line: episode succeeds when `x >= RACE_DISTANCE_M`.
+pub const RACE_DISTANCE_M: f64 = 20.0;
+
+/// Any successful finish beats any failure (`fitness <= RACE_DISTANCE_M` as f32).
+pub const BASE_SUCCESS: f32 = 1000.0;
+const FITNESS_TIME_EPS: f32 = 1e-6;
+
 pub const ANGLE_LIMIT_RAD: f64 = std::f64::consts::PI / 180.0 * 30.0;
 
 /// Uniform noise half-width on θ each step (radians).
@@ -38,10 +44,19 @@ impl State {
         }
     }
 
+    /// Still contending: pole up and not left of the start line.
     #[inline]
     pub fn alive(self) -> bool {
-        self.x.abs() <= TRACK_LIMIT && self.theta.abs() <= ANGLE_LIMIT_RAD
+        self.theta.abs() <= ANGLE_LIMIT_RAD && self.x >= 0.0
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct EpisodeOutcome {
+    pub fitness: f32,
+    pub success: bool,
+    pub time_s: f32,
+    pub max_x: f32,
 }
 
 #[inline]
@@ -85,15 +100,58 @@ pub fn step_state(state: &mut State, genome: &Genome, rng: &mut impl Rng) {
 /// Max physics steps per episode (matches headless `evaluate` cap).
 pub const MAX_EPISODE_STEPS: u32 = 1_000_000;
 
-/// Survival time in seconds for one episode (fixed start, run until failure).
+/// One physics step of an episode. Returns `Some` when the episode ends.
+pub fn episode_step(
+    s: &mut State,
+    t: &mut f32,
+    steps: &mut u32,
+    max_x: &mut f32,
+    genome: &Genome,
+    rng: &mut impl Rng,
+) -> Option<EpisodeOutcome> {
+    if *steps >= MAX_EPISODE_STEPS {
+        return Some(EpisodeOutcome {
+            fitness: *max_x,
+            success: false,
+            time_s: *t,
+            max_x: *max_x,
+        });
+    }
+
+    step_state(s, genome, rng);
+    *t += DT as f32;
+    *steps += 1;
+    *max_x = (*max_x).max(s.x as f32);
+
+    if s.x >= RACE_DISTANCE_M {
+        let t_clamped = (*t).max(FITNESS_TIME_EPS);
+        return Some(EpisodeOutcome {
+            fitness: BASE_SUCCESS + 1.0 / t_clamped,
+            success: true,
+            time_s: *t,
+            max_x: *max_x,
+        });
+    }
+    if !s.alive() {
+        return Some(EpisodeOutcome {
+            fitness: *max_x,
+            success: false,
+            time_s: *t,
+            max_x: *max_x,
+        });
+    }
+    None
+}
+
+/// Race fitness: distance when failing, speed (via `1/time`) when reaching the finish.
 pub fn evaluate(genome: &Genome, rng: &mut impl Rng) -> f32 {
     let mut s = State::initial_fixed();
     let mut t = 0.0f32;
     let mut steps = 0u32;
-    while s.alive() && steps < MAX_EPISODE_STEPS {
-        step_state(&mut s, genome, rng);
-        t += DT as f32;
-        steps += 1;
+    let mut max_x = 0.0f32;
+    loop {
+        if let Some(out) = episode_step(&mut s, &mut t, &mut steps, &mut max_x, genome, rng) {
+            return out.fitness;
+        }
     }
-    t
 }
