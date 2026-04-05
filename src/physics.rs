@@ -39,7 +39,10 @@ pub const THETA_NOISE: f64 = 1e-3;
 
 pub const MAX_ABS_FORCE: f64 = 50.0;
 
-pub type Genome = [f32; 4];
+/// Controller: 4 linear weights on `(x, x_dot, theta, theta_dot)`, then 6 weights on
+/// products `v_i * v_j` for `i < j` in that variable order (strict upper triangle).
+pub const GENOME_LEN: usize = 10;
+pub type Genome = [f32; GENOME_LEN];
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct State {
@@ -76,10 +79,23 @@ pub struct EpisodeOutcome {
 
 #[inline]
 fn force_from_genome(state: &State, g: &Genome) -> f64 {
-    let f = g[0] as f64 * state.x
-        + g[1] as f64 * state.x_dot
-        + g[2] as f64 * state.theta
-        + g[3] as f64 * state.theta_dot;
+    let x = state.x;
+    let xd = state.x_dot;
+    let th = state.theta;
+    let td = state.theta_dot;
+    let v = [x, xd, th, td];
+    let mut f = g[0] as f64 * x
+        + g[1] as f64 * xd
+        + g[2] as f64 * th
+        + g[3] as f64 * td;
+    let mut k = 4usize;
+    for i in 0..4 {
+        for j in (i + 1)..4 {
+            f += g[k] as f64 * v[i] * v[j];
+            k += 1;
+        }
+    }
+    debug_assert_eq!(k, GENOME_LEN);
     f.clamp(-MAX_ABS_FORCE, MAX_ABS_FORCE)
 }
 

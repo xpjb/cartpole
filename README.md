@@ -19,3 +19,8 @@ would take away time as it went but reward distacne squared i think
 
 
 i kind of think its underfitting, might try quadratic control
+
+---
+
+wow quadratic is cool
+is there like taylor series control lol

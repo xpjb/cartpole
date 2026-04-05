@@ -1,6 +1,6 @@
 //! Population, selection, crossover, mutation, save/load.
 
-use crate::physics::{evaluate, Genome};
+use crate::physics::{evaluate, Genome, GENOME_LEN};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -136,24 +136,23 @@ impl Population {
 }
 
 fn random_genome(rng: &mut ThreadRng) -> Genome {
-    [
-        rng.gen_range(-INIT_WEIGHT_RANGE..INIT_WEIGHT_RANGE),
-        rng.gen_range(-INIT_WEIGHT_RANGE..INIT_WEIGHT_RANGE),
-        rng.gen_range(-INIT_WEIGHT_RANGE..INIT_WEIGHT_RANGE),
-        rng.gen_range(-INIT_WEIGHT_RANGE..INIT_WEIGHT_RANGE),
-    ]
+    let mut g = [0.0f32; GENOME_LEN];
+    for i in 0..GENOME_LEN {
+        g[i] = rng.gen_range(-INIT_WEIGHT_RANGE..INIT_WEIGHT_RANGE);
+    }
+    g
 }
 
 fn crossover(a: &Genome, b: &Genome, rng: &mut ThreadRng) -> Genome {
-    let mut c = [0.0f32; 4];
-    for i in 0..4 {
+    let mut c = [0.0f32; GENOME_LEN];
+    for i in 0..GENOME_LEN {
         c[i] = if rng.gen_bool(0.5) { a[i] } else { b[i] };
     }
     c
 }
 
 fn mutate(g: &mut Genome, rng: &mut ThreadRng) {
-    for i in 0..4 {
+    for i in 0..GENOME_LEN {
         if rng.gen_bool(MUTATE_PROB) {
             g[i] += rng.gen_range(-MUTATE_STD..MUTATE_STD);
         }
