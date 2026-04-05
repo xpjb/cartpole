@@ -23,4 +23,4 @@ i kind of think its underfitting, might try quadratic control
 ---
 
 wow quadratic is cool
-is there like taylor series control lol
+is there like taylor series control lol 
