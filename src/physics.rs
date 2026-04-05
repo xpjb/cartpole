@@ -12,10 +12,25 @@ pub const G: f64 = 9.81;
 
 /// Finish line: episode succeeds when `x >= RACE_DISTANCE_M`.
 pub const RACE_DISTANCE_M: f64 = 20.0;
+/// Episode fails when `x` goes past this left bound (meters). Allows brief backward motion.
+pub const LEFT_BOUND_M: f64 = -1.0;
 
-/// Any successful finish beats any failure (`fitness <= RACE_DISTANCE_M` as f32).
+/// Weight on survival time in failure fitness (`W_TIME * time_s + W_DIST * max_x`).
+pub const W_TIME: f32 = 0.04;
+/// Weight on forward distance in failure fitness.
+pub const W_DIST: f32 = 0.01;
+/// Scale for inverse finish time on success (`BASE_SUCCESS + W_SPEED / time_s`).
+pub const W_SPEED: f32 = 100.0;
+
+/// Any successful finish must score above any failure. With linear failure fitness,
+/// worst case is roughly `W_TIME * (MAX_EPISODE_STEPS * DT) + W_DIST * RACE_DISTANCE_M` (≈ 667 < 1000).
 pub const BASE_SUCCESS: f32 = 1000.0;
 const FITNESS_TIME_EPS: f32 = 1e-6;
+
+#[inline]
+fn fitness_fail(time_s: f32, max_x: f32) -> f32 {
+    W_TIME * time_s.min(3.0) + W_DIST * max_x
+}
 
 pub const ANGLE_LIMIT_RAD: f64 = std::f64::consts::PI / 180.0 * 30.0;
 
@@ -44,10 +59,10 @@ impl State {
         }
     }
 
-    /// Still contending: pole up and not left of the start line.
+    /// Still contending: pole up and cart not left of `LEFT_BOUND_M`.
     #[inline]
     pub fn alive(self) -> bool {
-        self.theta.abs() <= ANGLE_LIMIT_RAD && self.x >= 0.0
+        self.theta.abs() <= ANGLE_LIMIT_RAD && self.x >= LEFT_BOUND_M
     }
 }
 
@@ -111,7 +126,7 @@ pub fn episode_step(
 ) -> Option<EpisodeOutcome> {
     if *steps >= MAX_EPISODE_STEPS {
         return Some(EpisodeOutcome {
-            fitness: *max_x,
+            fitness: fitness_fail(*t, *max_x),
             success: false,
             time_s: *t,
             max_x: *max_x,
@@ -126,7 +141,7 @@ pub fn episode_step(
     if s.x >= RACE_DISTANCE_M {
         let t_clamped = (*t).max(FITNESS_TIME_EPS);
         return Some(EpisodeOutcome {
-            fitness: BASE_SUCCESS + 1.0 / t_clamped,
+            fitness: BASE_SUCCESS + W_SPEED / t_clamped,
             success: true,
             time_s: *t,
             max_x: *max_x,
@@ -134,7 +149,7 @@ pub fn episode_step(
     }
     if !s.alive() {
         return Some(EpisodeOutcome {
-            fitness: *max_x,
+            fitness: fitness_fail(*t, *max_x),
             success: false,
             time_s: *t,
             max_x: *max_x,
@@ -143,7 +158,7 @@ pub fn episode_step(
     None
 }
 
-/// Race fitness: distance when failing, speed (via `1/time`) when reaching the finish.
+/// Race fitness: `W_TIME*time + W_DIST*max_x` when failing; `BASE_SUCCESS + W_SPEED/time` on finish.
 pub fn evaluate(genome: &Genome, rng: &mut impl Rng) -> f32 {
     let mut s = State::initial_fixed();
     let mut t = 0.0f32;
@@ -153,5 +168,22 @@ pub fn evaluate(genome: &Genome, rng: &mut impl Rng) -> f32 {
         if let Some(out) = episode_step(&mut s, &mut t, &mut steps, &mut max_x, genome, rng) {
             return out.fitness;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn success_beats_worst_failure_fitness() {
+        let t_cap = MAX_EPISODE_STEPS as f32 * DT as f32;
+        let worst_fail = W_TIME * t_cap + W_DIST * RACE_DISTANCE_M as f32;
+        assert!(
+            BASE_SUCCESS > worst_fail,
+            "BASE_SUCCESS must exceed any linear failure score (here ~{worst_fail})"
+        );
+        let slow_finish = BASE_SUCCESS + W_SPEED / t_cap;
+        assert!(slow_finish > worst_fail);
     }
 }

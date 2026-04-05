@@ -6,7 +6,7 @@ mod render;
 
 use evolution::{Population, POP_SIZE, SAVE_FILENAME};
 use macroquad::prelude::*;
-use physics::{episode_step, State, RACE_DISTANCE_M};
+use physics::{episode_step, State};
 use ::rand::thread_rng;
 use std::env;
 use std::path::PathBuf;
@@ -59,6 +59,54 @@ fn graphical_conf() -> macroquad::conf::Conf {
     }
 }
 
+/// Row label column (left).
+const STAT_LABEL_W: usize = 14;
+/// Padded numeric columns: `distance`, `time`, `fitness`.
+const STAT_DIST_W: usize = 8;
+const STAT_TIME_W: usize = 8;
+const STAT_FIT_W: usize = 9;
+
+fn stat_table_header_line() -> String {
+    format!(
+        "{:<lw$}{:>dw$}  {:>tw$}  {:>fw$}",
+        "",
+        "distance",
+        "time",
+        "fitness",
+        lw = STAT_LABEL_W,
+        dw = STAT_DIST_W,
+        tw = STAT_TIME_W,
+        fw = STAT_FIT_W,
+    )
+}
+
+fn stat_table_row(label: &str, cells: Option<(f32, f32, f32)>) -> String {
+    match cells {
+        Some((d, t, f)) => format!(
+            "{:<lw$}{:>dw$.2}  {:>tw$.2}  {:>fw$.3}",
+            label,
+            d,
+            t,
+            f,
+            lw = STAT_LABEL_W,
+            dw = STAT_DIST_W,
+            tw = STAT_TIME_W,
+            fw = STAT_FIT_W,
+        ),
+        None => format!(
+            "{:<lw$}{:>dw$}  {:>tw$}  {:>fw$}",
+            label,
+            "—",
+            "—",
+            "—",
+            lw = STAT_LABEL_W,
+            dw = STAT_DIST_W,
+            tw = STAT_TIME_W,
+            fw = STAT_FIT_W,
+        ),
+    }
+}
+
 fn graphical_physics_step(
     pop: &mut Population,
     eval_index: &mut usize,
@@ -67,6 +115,8 @@ fn graphical_physics_step(
     episode_steps: &mut u32,
     episode_max_x: &mut f32,
     last_episode: &mut Option<physics::EpisodeOutcome>,
+    gen_best: &mut Option<(f32, f32, f32)>,
+    session_best: &mut Option<(f32, f32, f32)>,
     rng: &mut ::rand::rngs::ThreadRng,
     save_path: Option<&PathBuf>,
 ) {
@@ -80,6 +130,19 @@ fn graphical_physics_step(
     ) {
         *last_episode = Some(outcome);
         pop.fitness[*eval_index] = outcome.fitness;
+
+        let better = |a: f32, b: f32| {
+            a.partial_cmp(&b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                == std::cmp::Ordering::Greater
+        };
+        if gen_best.map_or(true, |(_, _, f)| better(outcome.fitness, f)) {
+            *gen_best = Some((outcome.max_x, outcome.time_s, outcome.fitness));
+        }
+        if session_best.map_or(true, |(_, _, f)| better(outcome.fitness, f)) {
+            *session_best = Some((outcome.max_x, outcome.time_s, outcome.fitness));
+        }
+
         *eval_index += 1;
         *sim = State::initial_fixed();
         *episode_elapsed = 0.0;
@@ -92,6 +155,7 @@ fn graphical_physics_step(
                 let _ = pop.save(path);
             }
             *eval_index = 0;
+            *gen_best = None;
         }
     }
 }
@@ -113,6 +177,8 @@ async fn graphical_run() {
     let mut episode_steps: u32 = 0;
     let mut episode_max_x: f32 = 0.0;
     let mut last_episode: Option<physics::EpisodeOutcome> = None;
+    let mut gen_best: Option<(f32, f32, f32)> = None;
+    let mut session_best: Option<(f32, f32, f32)> = None;
 
     loop {
         let frame_dt = get_frame_time();
@@ -134,6 +200,8 @@ async fn graphical_run() {
                     &mut episode_steps,
                     &mut episode_max_x,
                     &mut last_episode,
+                    &mut gen_best,
+                    &mut session_best,
                     &mut rng,
                     save_path.as_ref(),
                 );
@@ -153,6 +221,8 @@ async fn graphical_run() {
                     &mut episode_steps,
                     &mut episode_max_x,
                     &mut last_episode,
+                    &mut gen_best,
+                    &mut session_best,
                     &mut rng,
                     save_path.as_ref(),
                 );
@@ -162,40 +232,36 @@ async fn graphical_run() {
         clear_background(Color::from_rgba(24, 28, 36, 255));
         render::draw_cartpole(sim);
 
-        let dist_rem = (RACE_DISTANCE_M as f32 - sim.x as f32).max(0.0);
-        let gen_txt = format!("generation: {}", pop.generation);
-        let run_txt = format!(
-            "individual {}/{}  t={:.2}s  x={:.2}m  to finish: {:.2} m",
+        let gen_ep_line = format!(
+            "gen {}  episode {}/{}",
+            pop.generation,
             eval_index + 1,
-            POP_SIZE,
-            episode_elapsed,
-            sim.x,
-            dist_rem
+            POP_SIZE
         );
-        let fit_txt = format!(
-            "best fitness (race, last breed): {:.3}",
-            pop.best_fitness
+        let header_line = stat_table_header_line();
+        let prev_line = stat_table_row(
+            "prev:",
+            last_episode.map(|e| (e.max_x, e.time_s, e.fitness)),
         );
-        draw_text(&gen_txt, 16.0, 24.0, 22.0, WHITE);
-        draw_text(&run_txt, 16.0, 50.0, 22.0, LIGHTGRAY);
-        draw_text(&fit_txt, 16.0, 76.0, 18.0, Color::from_rgba(180, 200, 220, 255));
-        if let Some(last) = last_episode {
-            let last_txt = if last.success {
-                format!("last episode: FINISH in {:.3} s", last.time_s)
-            } else {
-                format!(
-                    "last episode: out at {:.2} m  (t={:.2} s)",
-                    last.max_x, last.time_s
-                )
-            };
-            draw_text(
-                &last_txt,
-                16.0,
-                102.0,
-                16.0,
-                Color::from_rgba(160, 175, 195, 255),
-            );
-        }
+        let gen_line = stat_table_row("best of gen:", gen_best);
+        let seen_line = stat_table_row("best seen:", session_best);
+
+        let y0 = 20.0;
+        let line_h = 22.0;
+        let size_title = 20.0;
+        let size_table = 18.0;
+        draw_text(&gen_ep_line, 16.0, y0, size_title, WHITE);
+        draw_text(
+            &header_line,
+            16.0,
+            y0 + line_h,
+            size_table,
+            Color::from_rgba(150, 170, 195, 255),
+        );
+        let stat_color = Color::from_rgba(200, 215, 235, 255);
+        draw_text(&prev_line, 16.0, y0 + 2.0 * line_h, size_table, stat_color);
+        draw_text(&gen_line, 16.0, y0 + 3.0 * line_h, size_table, stat_color);
+        draw_text(&seen_line, 16.0, y0 + 4.0 * line_h, size_table, stat_color);
         let mode_txt = if shift {
             format!(
                 "Shift: max physics until {:.0}% of a {:.0} Hz frame — release for 1:1 real time",
